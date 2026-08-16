@@ -6,9 +6,10 @@ Spring과 대응시키면 Application.java
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
 from app.config import MODEL_PATH
-from app.predictor import get_predictor, load_predictor
+from app.predictor import get_predictor, is_loaded, load_predictor
 from app.routers import prediction
 
 
@@ -30,4 +31,9 @@ app.include_router(prediction.router)
 
 @app.get("/health", tags=["health"])
 def health():
+    if not is_loaded():
+        # 503 = Service Unavailable
+        # Gateway, Eureka가 상태코드로 판단한다
+        return JSONResponse(status_code=503, content={"status": "DOWN"})
+
     return {"status": "UP", "modelVersion": get_predictor().version}
