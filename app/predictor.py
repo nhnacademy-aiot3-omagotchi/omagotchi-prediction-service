@@ -8,11 +8,13 @@ import pandas as pd
 
 from app.config import MAX_STUDY_H
 
+from pathlib import Path
+
 
 class StudyTimePredictor:
     # 학습된 모델을 감싸고 입력 정렬, 결측 플래그, 범위 보정을 책임진다
 
-    def __init__(self, model_path: str):
+    def __init__(self, model_path: str | Path):
         pack = joblib.load(model_path)
         self._model = pack["model"]
         self._features = pack["FEATURES"]  # 35개, 순서 포함
@@ -37,7 +39,7 @@ class StudyTimePredictor:
 _predictor: StudyTimePredictor | None = None
 
 
-def load_predictor(model_path: str) -> None:
+def load_predictor(model_path: str | Path) -> None:
     # 앱 기동 시 1회 호출
     global _predictor
     _predictor = StudyTimePredictor(model_path)
@@ -48,3 +50,7 @@ def get_predictor() -> StudyTimePredictor:
     if _predictor is None:
         raise RuntimeError("predictor가 로드되지 않았습니다")
     return _predictor
+
+
+def is_loaded() -> bool:
+    return _predictor is not None
