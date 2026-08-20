@@ -8,6 +8,8 @@ HTTP 경계 테스트
 client, api_payload, broken_predictor_installed fixture는 conftest.py에 있음
 """
 
+import app.predictor as predictor_module
+
 
 def test_predict_success(client, api_payload):
     response = client.post("/api/v1/predictions/study-time", json=api_payload)
@@ -59,3 +61,13 @@ def test_request_id_generated_when_missing(client):
 
     assert "x-request-id" in response.headers
     assert len(response.headers["x-request-id"]) > 0
+
+
+# /health의 503 분기
+def test_health_returns_down_when_model_not_loaded(client, monkeypatch):
+    monkeypatch.setattr(predictor_module, "_predictor", None)
+
+    response = client.get("/health")
+
+    assert response.status_code == 503
+    assert response.json()["status"] == "DOWN"

@@ -5,6 +5,7 @@ monkeypatch는 pytest 내장 fixture로 Mockito의 when...thenReturn... 같은 �
 caplog도 pytest 내장으로, 로그가 실제로 찍혔는지 안 찍혔는지 검증할 때 사용함
 """
 
+import app.predictor as predictor_module
 import logging
 
 import numpy as np
@@ -66,3 +67,11 @@ def test_missing_value_handled(predictor, base_features):
     y_hat = predictor.predict(base_features)
 
     assert 0.0 <= y_hat <= MAX_STUDY_H
+
+
+# get_predictor()의 RuntimeError (도달하기 어렵기는 함)
+def test_get_predictor_raises_when_not_loaded(monkeypatch):
+    monkeypatch.setattr(predictor_module, "_predictor", None)
+
+    with pytest.raises(RuntimeError):
+        predictor_module.get_predictor()
