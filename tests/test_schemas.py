@@ -10,45 +10,6 @@ from pydantic import ValidationError
 from app.schemas import PredictionRequest
 
 
-@pytest.fixture
-def valid_payload() -> dict:
-    """실제 features.parquet에서 뽑은 유효한 요청 (2026-06-26 / user9 기준)."""
-    return {
-        "study_lag1": 9.5978,
-        "study_lag2": 9.6236,
-        "study_lag3": 8.1269,
-        "study_7d_mean": 7.3602,
-        "study_30d_mean": 6.9199,
-        "study_all_mean": 6.7323,
-        "study_7d_std": 3.5685,
-        "trend_7_30": 0.4403,
-        "study_diff_1d": -0.0258,
-        "att_7d": 1.0,
-        "att_30d": 0.9545,
-        "att_all": 0.9767,
-        "attend_days_7d": 6.0,
-        "noshow_yesterday": 0,
-        "late_7d": 0.0,
-        "late_30d": 0.0,
-        "late_all": 0.0238,
-        "forgot_7d": 0.0,
-        "entry_lag1_min": 540.0,
-        "entry_7d_mean_min": 539.1667,
-        "level": 18,
-        "quests_total": 142,
-        "quest_streak": 2,
-        "quest_rate_7d": 0.5714,
-        "tomorrow_is_weekday": 0,
-        "tomorrow_dow_1": 0,
-        "tomorrow_dow_2": 0,
-        "tomorrow_dow_3": 0,
-        "tomorrow_dow_4": 0,
-        "tomorrow_dow_5": 1,
-        "tomorrow_dow_6": 0,
-        "days_since_start": 298,
-    }
-
-
 def test_valid_payload_accepted(valid_payload):
     req = PredictionRequest(**valid_payload)
     assert req.study_lag1 == 9.5978
