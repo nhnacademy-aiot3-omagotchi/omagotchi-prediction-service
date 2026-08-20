@@ -5,10 +5,13 @@ Spring과 대응시키면 @Service
 
 import joblib
 import pandas as pd
+import logging
 
 from app.config import MAX_STUDY_H
 
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class StudyTimePredictor:
@@ -21,6 +24,10 @@ class StudyTimePredictor:
         self._nan_cols = pack["nan_cols"]  # _missing 플래그를 붙일 3개
         self.version = pack["version"]
 
+    @property
+    def feature_count(self) -> int:
+        return len(self._features)
+
     def predict(self, features: dict) -> float:
         row = dict(features)
 
@@ -32,8 +39,13 @@ class StudyTimePredictor:
         X = pd.DataFrame([row])[self._features].astype(float)  # None -> NaN, float64
         y_hat = float(self._model.predict(X)[0])
 
+        clamped = min(max(y_hat, 0.0), MAX_STUDY_H)
+
+        if clamped != y_hat:
+            logger.warning("예측값 보정: raw = %.4f -> clamped = %.4f", y_hat, clamped)
+
         # 응답 스펙 보장: 공부시간은 [0, 11.5] 안에 있다
-        return min(max(y_hat, 0.0), MAX_STUDY_H)
+        return clamped
 
 
 _predictor: StudyTimePredictor | None = None

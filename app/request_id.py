@@ -12,8 +12,14 @@ Starlette의 raw Exception 핸들러(ServerErrorMiddleware)는 사용자 미들�
 scope는 요청 전체(정상 처리·예외 처리 모두)가 공유하는 같은 딕셔너리라서
 어느 경로로 응답이 나가든 값을 읽을 수 있는 유일하게 신뢰할 수 있는 방법이다.
 그래서 응답 헤더도 미들웨어가 아니라 각 예외 핸들러가 직접 부착한다 (app/main.py).
+
+완료 로그(요청당 한 줄)도 같은 이유로 try/finally 안에서 남긴다 —
+처리되지 않은 예외는 self.app() 호출 자체를 뚫고 나가므로, finally 없이
+로그를 뒤에 두면 500 케이스에서만 로그가 통째로 빠진다.
 """
 
+import logging
+import time
 import uuid
 
 from starlette.datastructures import Headers
@@ -22,6 +28,8 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 REQUEST_ID_HEADER = "X-Request-ID"
 REQUEST_ID_STATE_KEY = "request_id"
+
+logger = logging.getLogger(__name__)
 
 
 class RequestIDMiddleware:
@@ -39,9 +47,13 @@ class RequestIDMiddleware:
 
         scope.setdefault("state", {})[REQUEST_ID_STATE_KEY] = request_id
 
+        started_at = time.monotonic()
+        status_holder = {"status": None}
+
         async def send_wrapper(message: Message) -> None:
             # 정상 경로(라우트 핸들러가 만든 응답)는 여기를 거친다
             if message["type"] == "http.response.start":
+                status_holder["status"] = message["status"]
                 raw_headers = list(message.get("headers", []))
                 already_has_id = any(
                     k.lower() == REQUEST_ID_HEADER.lower().encode("latin-1")
@@ -58,7 +70,18 @@ class RequestIDMiddleware:
                 message["headers"] = raw_headers
             await send(message)
 
-        await self.app(scope, receive, send_wrapper)
+        try:
+            await self.app(scope, receive, send_wrapper)
+        finally:
+            elapsed_ms = (time.monotonic() - started_at) * 1000
+            logger.info(
+                "%s %s -> %s (%.1fms) [%s]",
+                scope["method"],
+                scope["path"],
+                status_holder["status"] or 500,
+                elapsed_ms,
+                request_id,
+            )
 
 
 def get_request_id(request: Request) -> str | None:

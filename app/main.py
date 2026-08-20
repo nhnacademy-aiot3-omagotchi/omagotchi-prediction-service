@@ -20,6 +20,10 @@ from app.predictor import get_predictor, is_loaded, load_predictor
 from app.request_id import REQUEST_ID_HEADER, RequestIDMiddleware, get_request_id
 from app.routers import prediction
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 
@@ -27,6 +31,13 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # 기동 시 모델을 한 번만 로드한다 (Spring의 @PostConstruct 같은 것)
     load_predictor(MODEL_PATH)
+    predictor = get_predictor()
+    logger.info(
+        "모델 로드 완료: version = %s, path = %s, features = %d",
+        predictor.version,
+        MODEL_PATH,
+        predictor.feature_count,
+    )
     yield
 
 
