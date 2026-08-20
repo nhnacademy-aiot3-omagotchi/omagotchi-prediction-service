@@ -42,7 +42,11 @@ class RequestIDMiddleware:
             return
 
         headers = Headers(scope=scope)
+
+        # 들어온 요청에 X-Request-ID가 있으면 그 값을 가져옴 (없으면 None)
         incoming = headers.get(REQUEST_ID_HEADER)
+
+        # None이거나 빈 문자열이면(둘 다 falsy) uuid.uuid4().hex로 새 ID를 발급함
         request_id = incoming if incoming else uuid.uuid4().hex
 
         scope.setdefault("state", {})[REQUEST_ID_STATE_KEY] = request_id
