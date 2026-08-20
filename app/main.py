@@ -3,7 +3,7 @@
 Spring과 대응시키면 Application.java
 """
 
-import math
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -11,21 +11,16 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.config import MODEL_PATH
+from app.errors import (
+    COMMON_INTERNAL_SERVER_ERROR,
+    COMMON_INVALID_REQUEST,
+    error_body,
+)
 from app.predictor import get_predictor, is_loaded, load_predictor
 from app.routers import prediction
 
 
-def _sanitize(obj):
-    # JSON으로 못 만드는 값(NaN, Infinity, 예외 객체)을 문자열로 바꿔 직렬화 가능하게 만든다
-    if isinstance(obj, float) and not math.isfinite(obj):
-        return str(obj)
-    if isinstance(obj, BaseException):
-        return str(obj)
-    if isinstance(obj, dict):
-        return {k: _sanitize(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [_sanitize(v) for v in obj]
-    return obj
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -46,8 +41,24 @@ app.include_router(prediction.router)
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    # NaN, Infinity 입력은 에러 메시지에 원본값, 예외 객체가 그대로 담겨 JSON 직렬화가 깨진다 -> 정제 후 응답
-    return JSONResponse(status_code=422, content={"detail": _sanitize(exc.errors())})
+    # 예상 가능한 4xx: 스택트레이스는 남기지 않되, 필드별 원인은 진단용으로 로깅
+    logger.warning(
+        "validation failed: path = %s, errors = %s", request.url.path, exc.errors()
+    )
+    return JSONResponse(
+        status_code=COMMON_INVALID_REQUEST.status,
+        content=error_body(COMMON_INVALID_REQUEST, request.url.path),
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    # 예상치 못한 실패: 원본 예외는 로그에 보존하고, 응답에는 안전한 메시지만 노출
+    logger.exception("unhandled exception: path = %s", request.url.path)
+    return JSONResponse(
+        status_code=COMMON_INTERNAL_SERVER_ERROR.status,
+        content=error_body(COMMON_INTERNAL_SERVER_ERROR, request.url.path),
+    )
 
 
 @app.get("/health", tags=["health"])
