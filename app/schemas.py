@@ -101,6 +101,30 @@ class PredictionRequest(CamelModel):
         ]
         if sum(dows) > 1:
             raise ValueError("tomorrow_dow_1~6 중 하나만 1이어야 합니다 (원-핫)")
+
+        # tomorrow_dow_5(토)·tomorrow_dow_6(일) 중 하나라도 1이면 내일은 주말 -> is_weekday=0
+        # 그 외(월~금)면 is_weekday=1
+        expected_weekday = 0 if (self.tomorrow_dow_5 or self.tomorrow_dow_6) else 1
+        if self.tomorrow_is_weekday != expected_weekday:
+            raise ValueError(
+                "tomorrow_is_weekday가 tomorrow_dow_1~6과 모순됩니다"
+                f" (dow로 계산한 값={expected_weekday}, 받은 값={self.tomorrow_is_weekday})"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def check_noshow_consistency(self) -> "PredictionRequest":
+        # noshow_yesterday는 이름과 달리 '오늘(d일)' 미등원 여부다.
+        # 등원 <=> study_h > 0 이므로 study_lag1(=오늘 study_h)과 반드시 일치해야 한다.
+        attended_today = self.study_lag1 > 1e-9
+        if self.noshow_yesterday == 1 and attended_today:
+            raise ValueError(
+                f"noshow_yesterday=1(미등원)인데 study_lag1={self.study_lag1}로 공부시간이 있습니다"
+            )
+        if self.noshow_yesterday == 0 and not attended_today:
+            raise ValueError(
+                "noshow_yesterday=0(등원)인데 study_lag1=0으로 공부시간이 없습니다"
+            )
         return self
 
 
