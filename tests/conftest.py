@@ -17,9 +17,6 @@ def client():
 
     # raise_server_exceptions=False: 500도 응답으로 받아서 검사하기 위해 켰음
     # (기본값 True면 ServerErrorMiddleware가 재발생시키는 예외가 테스트를 실패시킴)
-
-    # TestClient를 with로 쓰면 lifespan(모델 로드)이 실제로 실행됨
-    # Spring의 @SpringBootTest(컨텍스트가 뜨는가)와 비슷한 성격의 테스트
     with TestClient(app, raise_server_exceptions=False) as client:
         yield client
 
