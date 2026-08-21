@@ -8,6 +8,7 @@ caplog도 pytest 내장으로, 로그가 실제로 찍혔는지 안 찍혔는지
 import app.predictor as predictor_module
 import logging
 
+import joblib
 import numpy as np
 import pytest
 
@@ -75,3 +76,27 @@ def test_get_predictor_raises_when_not_loaded(monkeypatch):
 
     with pytest.raises(RuntimeError):
         predictor_module.get_predictor()
+
+
+# monkeypatch는 pytest가 기본으로 제공하는 fixture (Mockito의 when().thenReturn()처럼 테스트 끝나면 자동으로 원상복구되는 가짜 교체 도구임)
+def test_feature_schema_mismatch_rejected(monkeypatch):
+
+    # 진짜 모델 파일을 그대로 한 번 읽어옴
+    # joblib.load()는 파이썬 객체를 파일로 저장/복원하는 라이브러리임
+    # 이 파일 안엔 {"model": ..., "FEATURES": [...35개...], "nan_cols": [...], "version": "..."} 형태의 dict가 들어있음
+    real_pack = joblib.load(MODEL_PATH)
+
+    # 그 dict를 복사한 다음, FEATURES 리스트에서 마지막 항목만 하나 빼버림
+    broken_pack = dict(real_pack)
+    broken_pack["FEATURES"] = real_pack["FEATURES"][
+        :-1
+    ]  # 피처 하나 슬라이싱해서 몰래 제거
+
+    # joblib.load 함수 자체를 무슨 경로로 넘겨받든 무조건 broken_pack(가짜 데이터)을 돌려주는 함수로 바꿔치기 (Mockito같은)
+    monkeypatch.setattr(joblib, "load", lambda path: broken_pack)
+
+    # 생성 (가짜 경로를 넘기지만 joblib.load가 이미 가짜라서 파일을 진짜 찾으러 가지 않고 바로 broken_pack을 돌려줌)
+    # 그러면 __init__ 안에서 self._check_features_match_schema()가 실행되면서 스키마는 35개를 기대하는데 모델은 34개를 줬다는 것을 알고 ValueError 던짐
+    # pytest.raises(ValueError) -> 이 블락 안에서 이 예외가 터져야 테스트 성공
+    with pytest.raises(ValueError):
+        StudyTimePredictor("dummy-path")
