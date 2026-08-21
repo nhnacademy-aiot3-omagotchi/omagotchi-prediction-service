@@ -10,10 +10,10 @@ import logging
 
 
 def test_validation_failure_does_not_log_stack_trace(client, caplog):
-    with caplog.at_level(logging.WARNING, logger="app.main"):
+    with caplog.at_level(logging.WARNING, logger="app.exception_handlers"):
         client.post("/api/v1/predictions/study-time", json={"studyLag1": 5.0})
 
-    records = [r for r in caplog.records if r.name == "app.main"]
+    records = [r for r in caplog.records if r.name == "app.exception_handlers"]
 
     assert len(records) == 1
     assert records[0].levelname == "WARNING"
@@ -23,10 +23,10 @@ def test_validation_failure_does_not_log_stack_trace(client, caplog):
 def test_unhandle_exception_logs_stack_trace(
     client, api_payload, broken_predictor_installed, caplog
 ):
-    with caplog.at_level(logging.WARNING, logger="app.main"):
+    with caplog.at_level(logging.WARNING, logger="app.exception_handlers"):
         client.post("/api/v1/predictions/study-time", json=api_payload)
 
-    records = [r for r in caplog.records if r.name == "app.main"]
+    records = [r for r in caplog.records if r.name == "app.exception_handlers"]
 
     assert len(records) == 1
     assert records[0].levelname == "ERROR"
