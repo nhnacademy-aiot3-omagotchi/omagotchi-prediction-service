@@ -16,7 +16,7 @@ from app.errors import (
     COMMON_INVALID_REQUEST,
     error_body,
 )
-from app.predictor import ModelNotLoadedError, get_predictor, is_loaded, load_predictor
+from app.predictor import get_predictor, load_predictor
 from app.request_id import REQUEST_ID_HEADER, RequestIDMiddleware, get_request_id
 from app.routers import prediction
 
@@ -30,21 +30,16 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 기동 시 모델을 한 번만 로드한다 (Spring의 @PostConstruct 같은 것)
-    # 실패해도 앱은 반드시 기동해야 /health가 503을 보고할 수 있음
-    try:
-        load_predictor(MODEL_PATH)
-    except Exception:
-        logger.exception(
-            "모델 로드 실패 - DOWN 상태로 기동합니다: path = %s", MODEL_PATH
-        )
-    else:
-        predictor = get_predictor()
-        logger.info(
-            "모델 로드 완료: version = %s, path = %s, features = %d",
-            predictor.version,
-            MODEL_PATH,
-            predictor.feature_count,
-        )
+    # 필수 리소스이므로 실패하면 원본 예외를 그대로 전파해 기동 자체를 실패시킴 (의도적)
+    load_predictor(MODEL_PATH)
+    predictor = get_predictor()
+    logger.info(
+        "모델 로드 완료: version = %s, path = %s, features = %d",
+        predictor.version,
+        MODEL_PATH,
+        predictor.feature_count,
+    )
+
     yield
 
 
@@ -60,17 +55,6 @@ app.include_router(prediction.router)
 
 def _request_id_headers(request_id: str | None) -> dict[str, str] | None:
     return {REQUEST_ID_HEADER: request_id} if request_id else None
-
-
-@app.exception_handler(ModelNotLoadedError)
-async def model_not_loaded_handler(request: Request, exc: ModelNotLoadedError):
-    request_id = get_request_id(request)
-    logger.warning("prediction rejected: model not loaded, request_id = %s", request_id)
-
-    return JSONResponse(
-        status_code=COMMON_INTERNAL_SERVER_ERROR.status,  # 500
-        content=error_body(COMMON_INTERNAL_SERVER_ERROR, request.url.path, request_id),
-    )
 
 
 @app.exception_handler(RequestValidationError)
@@ -108,9 +92,5 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 @app.get("/health", tags=["health"])
 def health():
-    if not is_loaded():
-        # 503 = Service Unavailable
-        # Gateway, Eureka가 상태코드로 판단한다
-        return JSONResponse(status_code=503, content={"status": "DOWN"})
-
+    # 모델 로드 실패는 lifespan에서 기동 자체를 실패시키므로, 이 엔드포인트가 응답한다는 것은 모델이 로드됐다는 뜻임
     return {"status": "UP", "modelVersion": get_predictor().version}
