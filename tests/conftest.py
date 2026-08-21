@@ -12,13 +12,21 @@ from app.predictor import get_predictor
 from app.schemas import PredictionRequest
 
 
-@pytest.fixture
-def client():
-
+# 세션(전체 테스트 실행)동안 딱 한 번만 만들어서 재사용
+# TestClient 진입 시 lifespan이 돌면서 모델을 로드하는데, 테스트마다 새로 만들면 그만큼 매번 다시 읽음
+# (Spring으로 치면 @SpringBootTest(webEnvironment = ...)의 컨텍스트 캐싱과 비슷한 것)
+@pytest.fixture(scope="session")
+def _shared_client():
     # raise_server_exceptions=False: 500도 응답으로 받아서 검사하기 위해 켰음
     # (기본값 True면 ServerErrorMiddleware가 재발생시키는 예외가 테스트를 실패시킴)
     with TestClient(app, raise_server_exceptions=False) as client:
         yield client
+
+
+# 클라이언트 자체는 세션 전체에서 공유하되, dependency_overrides 같은 테스트별 변경 사항은 매 테스트가 끝날 때마다 정리해서 다음 테스트로 새지 않게 함
+@pytest.fixture
+def client(_shared_client):
+    yield _shared_client
 
     app.dependency_overrides.clear()  # 다음 테스트로 새지 않게 정리
 
