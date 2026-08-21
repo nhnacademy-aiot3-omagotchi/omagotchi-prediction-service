@@ -16,6 +16,8 @@ def test_predict_success(client, api_payload):
 
     body = response.json()
 
+    # 실제 모델(models/study_time_model.joblib)로 계산한 오프라인 기대값
+    # 모델을 재학습해서 교체하면 이 값도 같이 갱신해야 함 (http/prediction.http에도 동일 기대값이 있음)
     assert body["predictedStudyHours"] == 2.178
     assert body["modelVersion"]
 
@@ -31,6 +33,8 @@ def test_predict_validation_failure_returns_error_format(client):
     assert body["path"] == "/api/v1/predictions/study-time"
 
 
+# broken_predictor_installed는 함수 본문 안에서 이름으로 참조되지 않지만, pytest fixture는 함수 시그니처에 파라미터로 받는 것 자체가 이 fixture를 실행해달라는 요청임
+# app.dependency_overrides[get_predictor]를 가짜 predictor로 바꿔치기해서, 이후 그 테스트 안에서 나가는 모든 요청이 예측 중 터지는 predictor를 쓰게 만듬
 def test_predict_unhandled_exception_returns_error_format(
     client, api_payload, broken_predictor_installed
 ):
