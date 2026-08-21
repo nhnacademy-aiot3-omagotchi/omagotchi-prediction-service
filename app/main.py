@@ -30,14 +30,21 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 기동 시 모델을 한 번만 로드한다 (Spring의 @PostConstruct 같은 것)
-    load_predictor(MODEL_PATH)
-    predictor = get_predictor()
-    logger.info(
-        "모델 로드 완료: version = %s, path = %s, features = %d",
-        predictor.version,
-        MODEL_PATH,
-        predictor.feature_count,
-    )
+    # 실패해도 앱은 반드시 기동해야 /health가 503을 보고할 수 있음
+    try:
+        load_predictor(MODEL_PATH)
+    except Exception:
+        logger.exception(
+            "모델 로드 실패 - DOWN 상태로 기동합니다: path = %s", MODEL_PATH
+        )
+    else:
+        predictor = get_predictor()
+        logger.info(
+            "모델 로드 완료: version = %s, path = %s, features = %d",
+            predictor.version,
+            MODEL_PATH,
+            predictor.feature_count,
+        )
     yield
 
 
