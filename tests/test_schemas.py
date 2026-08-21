@@ -66,20 +66,6 @@ def test_weekday_dow_mismatch_rejected(valid_payload):
         PredictionRequest(**valid_payload)
 
 
-def test_noshow_with_positive_study_time_rejected(valid_payload):
-    valid_payload["noshow_yesterday"] = 1  # 미등원인데
-    valid_payload["study_lag1"] = 9.5  # 공부시간이 있음 -> 모순
-    with pytest.raises(ValidationError):
-        PredictionRequest(**valid_payload)
-
-
-def test_attended_with_zero_study_time_rejected(valid_payload):
-    valid_payload["noshow_yesterday"] = 0  # 등원인데
-    valid_payload["study_lag1"] = 0.0  # 공부시간이 0 -> 모순
-    with pytest.raises(ValidationError):
-        PredictionRequest(**valid_payload)
-
-
 def test_valid_monday_case_accepted(valid_payload):
     # 요일 전부 0 = 월요일, is_weekday=1 이어야 정상
     for i in range(1, 7):
@@ -87,3 +73,12 @@ def test_valid_monday_case_accepted(valid_payload):
     valid_payload["tomorrow_is_weekday"] = 1
     req = PredictionRequest(**valid_payload)
     assert req.tomorrow_is_weekday == 1
+
+
+def test_attended_with_zero_study_time_accepted(valid_payload):
+    # 출석과 타이머는 서로 별개 흐름이라서 등원했지만 타이머를 안 켠 날(공부시간 0)도 정상적인 요청임 (noshow_yesterday=0, study_lag1=0 모순 아님)
+    valid_payload["noshow_yesterday"] = 0
+    valid_payload["study_lag1"] = 0.0
+    req = PredictionRequest(**valid_payload)
+
+    assert req.study_lag1 == 0.0
