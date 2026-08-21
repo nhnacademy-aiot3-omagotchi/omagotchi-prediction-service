@@ -61,10 +61,29 @@ Content-Type: application/json
   "daysSinceStart": 150
 }
 
-### 검증 실패 케이스 - 필수 필드 누락 시 422가 나와야 정상
+### 검증 실패 케이스 - 필수 필드 누락 시 400 나와야 정상
 POST {{host}}/api/v1/predictions/study-time
 Content-Type: application/json
 
 {
     "studyLag1": 5.0
+}
+
+### 크로스필드 검증 실패 - 요일 원-핫과 tomorrow_is_weekday 모순
+# tomorrowDow5 = 토요일 = 1인데 tomorrowIsWeekday = 1이라고 우겨서 모순 -> 400 나와야 정상 
+POST {{host}}/api/v1/predictions/study-time
+Content-Type: application/json
+
+{
+  "studyLag1": 9.5978, "studyLag2": 9.6236, "studyLag3": 8.1269,
+  "study7dMean": 7.3602, "study30dMean": 6.9199, "studyAllMean": 6.7323, "study7dStd": 3.5685,
+  "trend7To30": 0.4403, "studyDiff1d": -0.0258,
+  "att7d": 1.0, "att30d": 0.9545, "attAll": 0.9767, "attendDays7d": 6.0, "noshowYesterday": 0,
+  "late7d": 0.0, "late30d": 0.0, "lateAll": 0.0238, "forgot7d": 0.0,
+  "entryLag1Min": 540.0, "entry7dMeanMin": 539.1667,
+  "level": 18, "questsTotal": 142, "questStreak": 2, "questRate7d": 0.5714,
+  "tomorrowIsWeekday": 1,
+  "tomorrowDow1": 0, "tomorrowDow2": 0, "tomorrowDow3": 0,
+  "tomorrowDow4": 0, "tomorrowDow5": 1, "tomorrowDow6": 0,
+  "daysSinceStart": 298
 }
