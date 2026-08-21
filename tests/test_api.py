@@ -64,6 +64,7 @@ def test_request_id_generated_when_missing(client):
 
 
 # /health의 503 분기
+# 앱이 이미 뜬 뒤에 _predictor를 억지로 None으로 되돌리는 방식이라 로드 자체가 실패하는 상황은 검증 못 함
 def test_health_returns_down_when_model_not_loaded(client, monkeypatch):
     monkeypatch.setattr(predictor_module, "_predictor", None)
 
