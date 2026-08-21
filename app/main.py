@@ -16,7 +16,7 @@ from app.errors import (
     COMMON_INVALID_REQUEST,
     error_body,
 )
-from app.predictor import get_predictor, is_loaded, load_predictor
+from app.predictor import ModelNotLoadedError, get_predictor, is_loaded, load_predictor
 from app.request_id import REQUEST_ID_HEADER, RequestIDMiddleware, get_request_id
 from app.routers import prediction
 
@@ -60,6 +60,17 @@ app.include_router(prediction.router)
 
 def _request_id_headers(request_id: str | None) -> dict[str, str] | None:
     return {REQUEST_ID_HEADER: request_id} if request_id else None
+
+
+@app.exception_handler(ModelNotLoadedError)
+async def model_not_loaded_handler(request: Request, exc: ModelNotLoadedError):
+    request_id = get_request_id(request)
+    logger.warning("prediction rejected: model not loaded, request_id = %s", request_id)
+
+    return JSONResponse(
+        status_code=COMMON_INTERNAL_SERVER_ERROR.status,  # 500
+        content=error_body(COMMON_INTERNAL_SERVER_ERROR, request.url.path, request_id),
+    )
 
 
 @app.exception_handler(RequestValidationError)

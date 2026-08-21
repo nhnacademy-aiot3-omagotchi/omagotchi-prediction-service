@@ -72,3 +72,18 @@ def test_health_returns_down_when_model_not_loaded(client, monkeypatch):
 
     assert response.status_code == 503
     assert response.json()["status"] == "DOWN"
+
+
+def test_predict_returns_error_format_when_model_not_loaded(
+    client, api_payload, monkeypatch
+):
+    monkeypatch.setattr(predictor_module, "_predictor", None)
+
+    response = client.post("/api/v1/predictions/study-time", json=api_payload)
+
+    assert response.status_code == 500
+
+    body = response.json()
+
+    assert body["code"] == "COMMON_INTERNAL_SERVER_ERROR"
+    assert body["path"] == "/api/v1/predictions/study-time"

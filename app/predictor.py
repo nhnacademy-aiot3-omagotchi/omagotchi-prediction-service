@@ -57,10 +57,14 @@ def load_predictor(model_path: str | Path) -> None:
     _predictor = StudyTimePredictor(model_path)
 
 
+class ModelNotLoadedError(RuntimeError):
+    pass
+
+
 def get_predictor() -> StudyTimePredictor:
     # FastAPI 의존성 주입용 (Spring의 @Autowired 같은 것)
     if _predictor is None:
-        raise RuntimeError("predictor가 로드되지 않았습니다")
+        raise ModelNotLoadedError("predictor가 로드되지 않았습니다")
     return _predictor
 
 

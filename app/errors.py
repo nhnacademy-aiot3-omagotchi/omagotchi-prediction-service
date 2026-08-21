@@ -25,8 +25,8 @@ COMMON_INTERNAL_SERVER_ERROR = ErrorCode(
 )
 
 
+# RequestIDMiddleware가 모든 HTTP 요청에 항상 값을 채워주지만, 이 함수 자체는 미들웨어 경로 밖에서도 쓸 수 있도록 None 허용
 def error_body(error_code: ErrorCode, path: str, request_id: str | None = None) -> dict:
-    # requestId는 전파 구현 전까지는 널 허용 TODO 나중에 고칠 것!
     return {
         "code": error_code.code,
         "message": error_code.message,
