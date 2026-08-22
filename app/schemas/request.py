@@ -5,26 +5,27 @@ learning-service와의 계약
 
 from pydantic import Field, model_validator
 
+from app.config import MAX_STUDY_H
 from app.schemas.common import CamelModel
 
 
 class PredictionRequest(CamelModel):
     # learning-service가 가공해서 보내는 피처 32개
 
-    # 공부량 — 타이머 물리 상한(MAX_STUDY_H = 11.5h)
-    study_lag1: float = Field(ge=0, le=11.5)
-    study_lag2: float = Field(ge=0, le=11.5)
-    study_lag3: float = Field(ge=0, le=11.5)
-    study_7d_mean: float = Field(ge=0, le=11.5)
-    study_30d_mean: float = Field(ge=0, le=11.5)
-    study_all_mean: float = Field(ge=0, le=11.5)
-    study_7d_std: float = Field(ge=0, le=11.5)
+    # 공부량 — 타이머 물리 상한(config.MAX_STUDY_H)
+    study_lag1: float = Field(ge=0, le=MAX_STUDY_H)
+    study_lag2: float = Field(ge=0, le=MAX_STUDY_H)
+    study_lag3: float = Field(ge=0, le=MAX_STUDY_H)
+    study_7d_mean: float = Field(ge=0, le=MAX_STUDY_H)
+    study_30d_mean: float = Field(ge=0, le=MAX_STUDY_H)
+    study_all_mean: float = Field(ge=0, le=MAX_STUDY_H)
+    study_7d_std: float = Field(ge=0, le=MAX_STUDY_H)
 
     # 추세 — 공부시간 값들의 차이이므로 같은 범위에 종속
     trend_7_30: float = Field(
-        ge=-11.5, le=11.5, alias="trend7To30"
+        ge=-MAX_STUDY_H, le=MAX_STUDY_H, alias="trend7To30"
     )  # 자동 생성하면 trend730이 되어 7과 30의 경계가 사라진다
-    study_diff_1d: float = Field(ge=-11.5, le=11.5)
+    study_diff_1d: float = Field(ge=-MAX_STUDY_H, le=MAX_STUDY_H)
 
     # 등원 — 비율은 [0,1], 카운트는 7일 창이므로 [0,7]
     att_7d: float = Field(ge=0, le=1)

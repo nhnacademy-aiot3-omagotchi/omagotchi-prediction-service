@@ -23,7 +23,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     # 예상 가능한 4xx: stack trace는 남기지 않되, 필드별 원인은 진단용으로 로깅
     request_id = get_request_id(request)
     logger.warning(
-        "validation failed: request_id=%s path=%s errors=%s",
+        "validation failed: request_id = %s path = %s errors = %s",
         request_id,
         request.url.path,
         exc.errors(),
@@ -42,7 +42,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     # 직접 호출하므로, 헤더는 반드시 여기서 응답 객체에 직접 실어야 한다.
     request_id = get_request_id(request)
     logger.exception(
-        "unhandled exception: request_id= %s path= %s", request_id, request.url.path
+        "unhandled exception: request_id = %s path = %s", request_id, request.url.path
     )
     return JSONResponse(
         status_code=COMMON_INTERNAL_SERVER_ERROR.status,
