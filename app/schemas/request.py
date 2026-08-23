@@ -38,15 +38,15 @@ class PredictionRequest(CamelModel):
     noshow_yesterday: int = Field(ge=0, le=1)
 
     # 태그 (late_7d는 평일 등원 기록이 없으면 null)
-    late_7d: float | None = Field(default=None, ge=0, le=1)
+    late_7d: float | None = Field(ge=0, le=1)  # 최근 7일 지각률(평일 등원 기록이 아예 없으면 null)
     late_30d: float = Field(ge=0, le=1)
     late_all: float = Field(ge=0, le=1)
     forgot_7d: float = Field(ge=0, le=7)
 
     # 시간대 — common.py의 ENTRY_CAP: 입실 07:00(420분)~13:50(830분)
     # (미등원일이면 null)
-    entry_lag1_min: float | None = Field(default=None, ge=420, le=830)
-    entry_7d_mean_min: float | None = Field(default=None, ge=420, le=830)
+    entry_lag1_min: float | None = Field(ge=420, le=830)  # 오늘 입실 시각(분)(오늘 미등원이면 null)
+    entry_7d_mean_min: float | None = Field(ge=420, le=830)  # 최근 7일 평균 입실 시각(최근 7일간 등원 기록이 없으면 null)
 
     # 게임 — 레벨 상한은 팀 스펙(REQ-LEVEL-04)의 만렙 30을 따름
     # quests_total·quest_streak는 시간이 지나며 계속 느는 누적값이라 상한을 두지 않는다.
