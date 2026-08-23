@@ -53,6 +53,15 @@ def test_missing_field_rejected(valid_payload):
         PredictionRequest(**valid_payload)
 
 
+# null이 유효한 값인 것과, 키를 생략해도 되는 것은 별개 문제임
+@pytest.mark.parametrize("field", ["late_7d", "entry_lag1_min", "entry_7d_mean_min"])
+def test_nullable_field_omission_rejected(valid_payload, field):
+    # nullable이어도 키 자체를 생략하는 건 허용되지 않는다 (명시적 null만 허용)
+    del valid_payload[field]
+    with pytest.raises(ValidationError):
+        PredictionRequest(**valid_payload)
+
+
 def test_dow_onehot_violation_rejected(valid_payload):
     valid_payload["tomorrow_dow_1"] = 1  # dow_5도 이미 1이라 두 개가 1이 됨
     with pytest.raises(ValidationError):
