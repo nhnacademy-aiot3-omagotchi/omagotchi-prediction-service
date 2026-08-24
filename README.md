@@ -4,10 +4,11 @@
 
 ## 역할
 
-- 피처 32개 입력 → 내일 공부 시간 예측 (물리 상한 `MAX_STUDY_H = 11.5`h로 보정)
+- 피처 32개 입력 → 내일 공부 시간 예측 (예측 모델 출력 경계 `MAX_STUDY_H = 11.5`h로 보정)
 - 순수 추론만 담당 — 퀘스트 정책(도전 계수, 상하한 클립, 콜드스타트 규칙 폴백)은 전부 learning-service 책임
 - 원시 학습 기록을 직접 조회하지 않음 — learning-service가 이미 계산해서 보낸 피처만 사용
-- 이 서비스가 계약을 벗어난 응답(4xx/5xx)이나 무응답을 주면, learning-service는 예측을 신뢰하지 않고 기존 규칙(B2 등)으로 폴백해야 함
+- learning-service는 계산한 공부시간 입력 피처를 예측 모델 경계 `11.5`h로 보정해 전달함
+- 이 서비스의 비정상 응답은 learning-service가 내부 오류로 로그하고, 조회 API 호출자에게 일반 `500` 응답으로 반환함
 
 역할·책임 경계 근거: [ADR 0001 서비스 분리와 모델 아티팩트](https://github.com/nhnacademy-aiot3-omagotchi/docs/blob/main/30-adr/prediction/0001-service-separation-and-model-artifact.md), [ADR 0002 learning-service 통신 경계](https://github.com/nhnacademy-aiot3-omagotchi/docs/blob/main/30-adr/prediction/0002-learning-service-communication-boundary.md)
 
@@ -34,7 +35,7 @@ uvicorn app.main:app --reload --port 8085
 
 ```
 app/
-├── config.py             # 모델 경로(절대경로), 물리 상한 MAX_STUDY_H
+├── config.py             # 모델 경로(절대경로), 예측 모델 경계 MAX_STUDY_H
 ├── errors.py             # 공통 오류 코드(ErrorCode), error_body()
 ├── exception_handlers.py  # 예외 핸들러 2개 (Spring @ControllerAdvice/global.exception 격)
 ├── main.py               # 앱 조립, lifespan(모델 로드), /health

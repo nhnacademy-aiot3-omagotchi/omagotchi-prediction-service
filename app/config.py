@@ -11,9 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 MODEL_PATH = BASE_DIR / "models" / "study_time_model.joblib"
 
-# 타이머 물리 상한 - 학습 데이터의 영역이지, 서비스 정책이 아니다
-# 실제 타이머는 입퇴실과 무관하게 기록되어 이론상 이보다 더 클 수 있지만, 모델은 이 범위를 넘는 입력을 학습해 본 적이 없어 신뢰할 수 있는 예측을 보장하지 못한다
-# 그래서 요청 필드가 이 범위를 넘으면 보정하지 않고 400으로 거부한다
-# 값을 이 범위 안으로 맞추는 것(클램프)은 learning-service의 책임
-# 퀘스트 가중치, 상하한 같은 정책도 learning-service가 소유
+# 예측 AI를 만들 때 정한 모델 입력·출력 경계이며 타이머의 도메인 상한이 아니다
+# learning-service는 계산한 공부시간 피처를 이 상한으로 보정해 전달한다
+# 퀘스트 가중치, 상하한 같은 정책은 learning-service가 소유한다
 MAX_STUDY_H = 11.5

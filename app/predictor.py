@@ -83,7 +83,7 @@ class StudyTimePredictor:
         if clamped != y_hat:
             logger.warning("예측값 보정: raw = %.4f -> clamped = %.4f", y_hat, clamped)
 
-        # 응답 스펙 보장: 공부시간은 [0, 11.5] 안에 있다
+        # 예측 모델 출력 계약 보장: 공부시간은 [0, 11.5] 안에 있다
         return clamped
 
 

@@ -12,7 +12,7 @@ from app.schemas.common import CamelModel
 class PredictionRequest(CamelModel):
     # learning-service가 가공해서 보내는 피처 32개
 
-    # 공부량 — 타이머 물리 상한(config.MAX_STUDY_H)
+    # 공부량 — 예측 모델 입력 피처 상한(config.MAX_STUDY_H)
     study_lag1: float = Field(ge=0, le=MAX_STUDY_H)
     study_lag2: float = Field(ge=0, le=MAX_STUDY_H)
     study_lag3: float = Field(ge=0, le=MAX_STUDY_H)
@@ -33,8 +33,7 @@ class PredictionRequest(CamelModel):
     att_all: float = Field(ge=0, le=1)
     attend_days_7d: float = Field(ge=0, le=7)
 
-    # 이름과 달리 '오늘(d일)' 미등원 여부임
-    # 출석과 타이머 사용은 서로 별개의 흐름이라 study_lag1(오늘 공부시간)과의 정합성은 보장되지 않는다
+    # 기준일의 전날이 평일일 때 미등원 여부이며 전날 PENDING은 예측에서는 결석으로 판단한다
     noshow_yesterday: int = Field(ge=0, le=1)
 
     # 태그 (late_7d는 평일 등원 기록이 없으면 null)

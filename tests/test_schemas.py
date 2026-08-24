@@ -85,7 +85,7 @@ def test_valid_monday_case_accepted(valid_payload):
 
 
 def test_attended_with_zero_study_time_accepted(valid_payload):
-    # 출석과 타이머는 서로 별개 흐름이라서 등원했지만 타이머를 안 켠 날(공부시간 0)도 정상적인 요청임 (noshow_yesterday=0, study_lag1=0 모순 아님)
+    # noshow_yesterday는 전날 출결이고 study_lag1은 기준일 공부시간이므로 조합 제약을 두지 않는다
     valid_payload["noshow_yesterday"] = 0
     valid_payload["study_lag1"] = 0.0
     req = PredictionRequest(**valid_payload)
