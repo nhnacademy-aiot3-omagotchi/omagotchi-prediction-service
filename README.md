@@ -23,10 +23,16 @@
 python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt   # 운영 + 테스트 의존성 전부
-pytest                                 # 51 passed 나와야 정상
+pytest                                 # 60 passed 나와야 정상
 
 cp .env.local.example .env.local       # 값을 채운 뒤 사용 (.env.local은 커밋 대상 아님)
 uvicorn app.main:app --reload --port 8085 --env-file .env.local
+```
+
+CI는 커버리지 하한 60%를 게이트로 적용합니다(다른 서비스의 JaCoCo check와 같은 기준). PR을 올리기 전에 같은 조건으로 확인하려면 아래를 실행합니다.
+
+```bash
+pytest --cov=app --cov-fail-under=60
 ```
 
 - 상태 확인: `GET /health` (인증 불필요)
@@ -70,6 +76,7 @@ tests/
 ├── test_predictor.py            # 예측/클램프 로직 단위 테스트
 ├── test_api.py                  # HTTP 경계(200/400/500, Request ID)
 ├── test_security.py             # 인증 경계(누락·오답·정답, 손상된 헤더)
+├── test_service_credential.py   # Credential 설정 검증(형식 위반 시 기동 실패)
 ├── test_request_id_regression.py # Request ID 미들웨어 회귀 테스트
 └── test_error_log_policy.py     # 4xx/5xx 로그 레벨·스택트레이스 정책
 ```
