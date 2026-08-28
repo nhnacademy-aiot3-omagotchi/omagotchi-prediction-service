@@ -7,8 +7,14 @@ from fastapi import APIRouter, Depends
 
 from app.predictor import StudyTimePredictor, get_predictor
 from app.schemas import PredictionRequest, PredictionResponse
+from app.security import require_service_credential
 
-router = APIRouter(prefix="/api/v1/predictions", tags=["predictions"])
+router = APIRouter(
+    prefix="/api/v1/predictions",
+    tags=["predictions"],
+    # 라우터 전체에 적용 — 이후 추가되는 엔드포인트도 자동으로 인증 대상이 된다
+    dependencies=[Depends(require_service_credential)],
+)
 
 
 @router.post("/study-time", response_model=PredictionResponse)

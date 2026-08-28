@@ -13,6 +13,7 @@ from app.exception_handlers import register_exception_handlers
 from app.predictor import get_predictor, load_predictor
 from app.request_id import RequestIDMiddleware
 from app.routers import prediction
+from app.security import load_service_credential
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,6 +26,8 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # 기동 시 모델을 한 번만 로드한다 (Spring의 @PostConstruct 같은 것)
     # 필수 리소스이므로 실패하면 원본 예외를 그대로 전파해 기동 자체를 실패시킴 (의도적)
+    # Credential도 같은 성격이라 모델보다 먼저 검증한다 (설정 오류를 더 빨리 드러냄)
+    load_service_credential()
     load_predictor(MODEL_PATH)
     predictor = get_predictor()
     logger.info(
