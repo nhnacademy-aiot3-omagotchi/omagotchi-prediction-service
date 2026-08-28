@@ -1,0 +1,119 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit review policy for the study-time prediction service.
+
+language: "ko-KR"
+tone_instructions: >
+  문제를 지적할 때 원인과 영향 범위를 설명하고, 필요하면 공식 문서나 근거를 함께 제안해주세요.
+  단, 추측만으로 변경을 요구하지 말고 실제 요청 흐름과 테스트를 근거로 판단해주세요.
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  changed_files_summary: true
+  collapse_walkthrough: true
+  sequence_diagrams: true
+  assess_linked_issues: true
+  related_issues: false
+  related_prs: true
+  suggested_labels: false
+  auto_apply_labels: false
+  suggested_reviewers: false
+  auto_assign_reviewers: false
+  poem: false
+  enable_prompt_for_ai_agents: false
+
+  pre_merge_checks:
+    docstrings:
+      mode: "off"
+    title:
+      mode: "warning"
+      requirements: "무엇을 왜 바꿨는지 드러내세요. 예: fix(prediction): nullable 필드 키 생략을 거부"
+
+  auto_review:
+    enabled: false
+    labels: ["review-ready"]
+    auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 2
+    ignore_title_keywords: ["WIP", "wip", "[skip review]"]
+
+  path_filters:
+    - "!**/.venv/**"
+    - "!**/__pycache__/**"
+    - "!**/.pytest_cache/**"
+    - "!**/*.joblib"
+    - "!**/*.lock"
+
+  path_instructions:
+    - path: "app/**/*.py"
+      instructions: |
+        이 서비스는 learning-service가 계산해 보낸 피처 벡터를 받아 예측값 하나를 돌려주는 얇은 서비스입니다.
+        퀘스트 목표 변환, 도전 계수, 상·하한 클립, 콜드스타트 폴백 같은 정책은 learning-service의 책임이므로,
+        이 저장소에 정책 판단이 들어오면 지적해주세요.
+        학습 기록 원본을 직접 조회하거나 DB에 접근하는 코드도 데이터 소유권 경계 위반이므로 지적해주세요.
+
+    - path: "app/schemas/**/*.py"
+      instructions: |
+        learning-service와의 HTTP 계약입니다. 필드명·범위·nullable 여부 변경은 계약 변경이므로
+        상대 서비스 영향을 함께 검토하도록 요구해주세요.
+        nullable 필드에 default를 주면 키 생략이 조용히 통과하므로 지적해주세요.
+        (값으로 null은 허용하되, 키 자체는 항상 있어야 합니다.)
+        범위 검증만으로는 NaN·Infinity를 걸러내지 못하는 점, 계약 밖 필드를 거부하는 설정이
+        유지되는지 확인해주세요.
+
+    - path: "app/predictor.py"
+      instructions: |
+        모델 아티팩트는 기동 필수 리소스입니다. 로드 실패를 삼키고 기동을 계속하려는 변경은 지적해주세요.
+        모델이 기대하는 피처 목록과 스키마의 정합성 검증을 우회하면 지적해주세요.
+        응답값 범위 보정(clamp)은 학습 정의역을 벗어난 예측을 막는 안전장치이므로,
+        제거하거나 조용히 범위를 넓히면 지적해주세요.
+
+    - path: "app/routers/**/*.py"
+      instructions: |
+        HTTP 진입점 책임만 가집니다. 예측 로직이나 정책 판단이 들어오면 지적해주세요.
+        오류 응답을 여기서 직접 조립하면 지적해주세요. 공통 예외 핸들러가 담당합니다.
+
+    - path: "tests/**/*.py"
+      instructions: |
+        테스트 이름이 검증 대상 동작을 설명하는지 확인해주세요.
+        Assertion 없는 테스트, 실행 순서에 의존하는 테스트를 지적해주세요.
+        계약(범위, nullable, 알 수 없는 필드 거부)을 바꾸는 변경에는 대응 테스트를 요구해주세요.
+
+    - path: "app/config.py"
+      instructions: |
+        평문 비밀번호, Key, Token이 코드에 들어 있으면 반드시 지적해주세요.
+        Credential과 환경별로 달라지는 값은 환경 변수로 주입받아야 합니다.
+        운영 기본값이 로컬 개발 편의에 맞춰져 있으면 지적해주세요.
+
+    - path: "requirements*.txt"
+      instructions: |
+        런타임은 Python 3.12입니다. 버전이 고정되어 있는지 확인해주세요.
+        운영에 불필요한 의존성이 requirements.txt에 추가되면 지적해주세요.
+
+    - path: "Dockerfile"
+      instructions: |
+        LightGBM은 OpenMP 런타임(libgomp1)을 요구합니다. 이 의존성이 빠지면 모델 로드 시점에 기동이 실패하므로 지적해주세요.
+        모델 파일이 이미지에 포함되는지 확인해주세요.
+
+    - path: ".github/workflows/**"
+      instructions: |
+        Secret 노출, pull_request_target 오용, 태그로만 고정된 third-party Action,
+        과도한 GITHUB_TOKEN 권한을 지적해주세요.
+
+chat:
+  auto_reply: false
+
+knowledge_base:
+  web_search:
+    enabled: true
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "docs/**/*.md"
+      - "README.md"
+  learnings:
+    scope: "local"
+  issues:
+    scope: "local"
+  pull_requests:
+    scope: "local"
