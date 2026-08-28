@@ -4,6 +4,14 @@ Java로 치면 공유 테스트 지원 클래스나 static 상수 파일에 둘 
 여기 두면 import 없이 모든 테스트 파일에 자동으로 주입됨
 """
 
+import os
+
+# lifespan이 기동 시 Credential을 검증하므로 TestClient 생성 전에 설정한다
+os.environ.setdefault("LEARNING_PREDICTION_USERNAME", "learning-service")
+os.environ.setdefault(
+    "LEARNING_PREDICTION_PASSWORD", "test-credential-for-pytest-only-000000"
+)
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -29,6 +37,15 @@ def client(_shared_client):
     yield _shared_client
 
     app.dependency_overrides.clear()  # 다음 테스트로 새지 않게 정리
+
+
+@pytest.fixture
+def service_auth() -> tuple[str, str]:
+    # 인증이 필요한 엔드포인트 호출용 (learning-service 역할)
+    return (
+        os.environ["LEARNING_PREDICTION_USERNAME"],
+        os.environ["LEARNING_PREDICTION_PASSWORD"],
+    )
 
 
 @pytest.fixture
