@@ -1,7 +1,7 @@
-name: PR Check
+name: Code Quality
 
 on:
-  pull_request:
+  push:
     branches:
       - dev
 
@@ -9,18 +9,20 @@ permissions:
   contents: read
 
 concurrency:
-  group: pr-check-${{ github.event.pull_request.number }}
+  group: quality-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  test:
-    name: Pytest
+  analysis:
+    name: Pytest and SonarQube
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -40,8 +42,13 @@ jobs:
         shell: bash
         run: pip install -r requirements-dev.txt
 
-      # 커버리지 하한 60%는 다른 서비스가 mvnw verify로 실행하는 JaCoCo check와 같은 기준이다.
-      # 병합 전에 걸러야 하므로 PR 검증에서도 동일하게 적용한다.
-      - name: Run tests
+      # 커버리지 하한 60%는 다른 서비스의 JaCoCo check 규칙과 같은 기준이다.
+      - name: Run tests with coverage
         shell: bash
-        run: pytest --cov=app --cov-fail-under=60
+        run: pytest --cov=app --cov-report=xml --cov-fail-under=60
+
+      - name: SonarQube analysis
+        uses: SonarSource/sonarqube-scan-action@v8
+        env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
