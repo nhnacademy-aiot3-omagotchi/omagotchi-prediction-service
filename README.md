@@ -104,7 +104,7 @@ tests/
 - Credential 규약은 identity·learning과 동일합니다: username에 `:` 사용 불가, password는 32~72자에 영문자·숫자·`-`·`_`만 허용. 어긋나면 기동에 실패합니다.
 - 대조는 `secrets.compare_digest`로 수행해 타이밍 공격에 대응하고, username·password 비교를 모두 수행한 뒤 판정합니다.
 - 인증 실패는 헤더 누락·스킴 불일치·base64 손상·자격 불일치를 가리지 않고 전부 `401 AUTH_AUTHENTICATION_REQUIRED` 한 형식으로 응답하며, `WWW-Authenticate` 헤더를 함께 보냅니다.
-- 실제 Credential 값은 저장소에 두지 않습니다. 서버 `secrets/prod.env`와 GitHub `production` Environment의 `PROD_ENV`에만 존재합니다([Secret 관리](https://github.com/nhnacademy-aiot3-omagotchi/docs/blob/main/40-operations/03-secrets.md)).
+- 실제 Credential 값은 저장소에 두지 않습니다. 서버 `secrets/prod.env`와 `omagotchi-infra` 저장소의 `production` Environment Secret(`PROD_ENV`)에만 존재합니다([Secret 관리](https://github.com/nhnacademy-aiot3-omagotchi/docs/blob/main/40-operations/03-secrets.md)).
 
 ## 예외 처리
 
@@ -120,7 +120,7 @@ tests/
 
 - 이 서비스가 다루는 Secret: `LEARNING_PREDICTION_PASSWORD` (서비스 인증 절 참고)
   - 저장소에는 키 이름만 둡니다 — [`.env.local.example`](.env.local.example)
-  - 실제 값은 서버 `secrets/prod.env`와 GitHub `production` Environment의 `PROD_ENV`에만 둡니다
+  - 실제 값은 서버 `secrets/prod.env`와 `omagotchi-infra` 저장소의 `production` Environment Secret(`PROD_ENV`)에만 둡니다. 이 저장소에는 `PROD_ENV`를 등록하지 않습니다
   - 로그·오류 응답에 값이 남지 않습니다 (`ServiceCredential.__repr__`가 `[REDACTED]`로 가림)
   - 로컬 개발용 `.env.local`은 `.gitignore` 대상입니다
 - 모델 아티팩트(`models/study_time_model.joblib`)는 학습 산출물이라 저장소에 직접 커밋되어 있음 (ADR 0001)
