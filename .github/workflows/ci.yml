@@ -1,0 +1,47 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches:
+      - dev
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Pytest
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      # LightGBM이 요구하는 OpenMP 런타임. 러너 이미지의 사전 설치 여부에 의존하지 않는다.
+      - name: Install OpenMP runtime
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgomp1
+
+      - name: Install dependencies
+        shell: bash
+        run: pip install -r requirements-dev.txt
+
+      # 커버리지 하한 60%는 다른 서비스가 mvnw verify로 실행하는 JaCoCo check와 같은 기준이다.
+      # 병합 전에 걸러야 하므로 PR 검증에서도 동일하게 적용한다.
+      - name: Run tests
+        shell: bash
+        run: pytest --cov=app --cov-fail-under=60

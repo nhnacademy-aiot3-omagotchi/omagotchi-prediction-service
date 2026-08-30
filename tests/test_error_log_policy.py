@@ -9,9 +9,13 @@ client, api_payload, broken_predictor_installed fixture는 conftest.py에 있음
 import logging
 
 
-def test_validation_failure_does_not_log_stack_trace(client, caplog):
+def test_validation_failure_does_not_log_stack_trace(client, service_auth, caplog):
     with caplog.at_level(logging.WARNING, logger="app.exception_handlers"):
-        client.post("/api/v1/predictions/study-time", json={"studyLag1": 5.0})
+        client.post(
+            "/api/v1/predictions/study-time",
+            json={"studyLag1": 5.0},
+            auth=service_auth,
+        )
 
     records = [r for r in caplog.records if r.name == "app.exception_handlers"]
 
@@ -21,10 +25,12 @@ def test_validation_failure_does_not_log_stack_trace(client, caplog):
 
 
 def test_unhandle_exception_logs_stack_trace(
-    client, api_payload, broken_predictor_installed, caplog
+    client, api_payload, service_auth, broken_predictor_installed, caplog
 ):
     with caplog.at_level(logging.WARNING, logger="app.exception_handlers"):
-        client.post("/api/v1/predictions/study-time", json=api_payload)
+        client.post(
+            "/api/v1/predictions/study-time", json=api_payload, auth=service_auth
+        )
 
     records = [r for r in caplog.records if r.name == "app.exception_handlers"]
 

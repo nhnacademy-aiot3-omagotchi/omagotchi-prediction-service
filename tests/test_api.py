@@ -9,8 +9,10 @@ client, api_payload, broken_predictor_installed fixture는 conftest.py에 있음
 """
 
 
-def test_predict_success(client, api_payload):
-    response = client.post("/api/v1/predictions/study-time", json=api_payload)
+def test_predict_success(client, api_payload, service_auth):
+    response = client.post(
+        "/api/v1/predictions/study-time", json=api_payload, auth=service_auth
+    )
 
     assert response.status_code == 200
 
@@ -22,8 +24,10 @@ def test_predict_success(client, api_payload):
     assert body["modelVersion"]
 
 
-def test_predict_validation_failure_returns_error_format(client):
-    response = client.post("/api/v1/predictions/study-time", json={"studyLag1": 5.0})
+def test_predict_validation_failure_returns_error_format(client, service_auth):
+    response = client.post(
+        "/api/v1/predictions/study-time", json={"studyLag1": 5.0}, auth=service_auth
+    )
 
     assert response.status_code == 400
 
@@ -36,9 +40,11 @@ def test_predict_validation_failure_returns_error_format(client):
 # broken_predictor_installed는 함수 본문 안에서 이름으로 참조되지 않지만, pytest fixture는 함수 시그니처에 파라미터로 받는 것 자체가 이 fixture를 실행해달라는 요청임
 # app.dependency_overrides[get_predictor]를 가짜 predictor로 바꿔치기해서, 이후 그 테스트 안에서 나가는 모든 요청이 예측 중 터지는 predictor를 쓰게 만듬
 def test_predict_unhandled_exception_returns_error_format(
-    client, api_payload, broken_predictor_installed
+    client, api_payload, service_auth, broken_predictor_installed
 ):
-    response = client.post("/api/v1/predictions/study-time", json=api_payload)
+    response = client.post(
+        "/api/v1/predictions/study-time", json=api_payload, auth=service_auth
+    )
 
     assert response.status_code == 500
 
@@ -47,11 +53,12 @@ def test_predict_unhandled_exception_returns_error_format(
     assert body["code"] == "COMMON_INTERNAL_SERVER_ERROR"
 
 
-def test_request_id_echoed_in_header_and_body(client):
+def test_request_id_echoed_in_header_and_body(client, service_auth):
     response = client.post(
         "/api/v1/predictions/study-time",
         json={"studyLag1": 5.0},
         headers={"X-Request-ID": "test-fixed-id"},
+        auth=service_auth,
     )
 
     assert response.headers["x-request-id"] == "test-fixed-id"

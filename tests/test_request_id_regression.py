@@ -14,23 +14,25 @@ def test_empty_header_treated_as_missing(client):
     assert response.headers["x-request-id"] != ""
 
 
-def test_header_not_duplicated_on_validation_failure(client):
+def test_header_not_duplicated_on_validation_failure(client, service_auth):
     response = client.post(
         "/api/v1/predictions/study-time",
         json={"studyLag1": 5.0},
         headers={"X-Request-ID": "duplicate-check-400"},
+        auth=service_auth,
     )
 
     assert response.headers.get_list("x-request-id") == ["duplicate-check-400"]
 
 
 def test_header_present_on_unhandled_exception(
-    client, api_payload, broken_predictor_installed
+    client, api_payload, service_auth, broken_predictor_installed
 ):
     response = client.post(
         "/api/v1/predictions/study-time",
         json=api_payload,
         headers={"X-Request-ID": "header-check-500"},
+        auth=service_auth,
     )
 
     assert response.status_code == 500
@@ -38,13 +40,14 @@ def test_header_present_on_unhandled_exception(
 
 
 def test_completion_log_fires_on_unhandled_exception(
-    client, api_payload, broken_predictor_installed, caplog
+    client, api_payload, service_auth, broken_predictor_installed, caplog
 ):
     with caplog.at_level(logging.INFO, logger="app.request_id"):
         client.post(
             "/api/v1/predictions/study-time",
             json=api_payload,
             headers={"X-Request-ID": "completion-log-check"},
+            auth=service_auth,
         )
 
     matched = [

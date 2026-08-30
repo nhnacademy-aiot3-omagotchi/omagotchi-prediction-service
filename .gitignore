@@ -1,16 +1,55 @@
-# 가상환경
+### Python ###
 .venv/
-
-# 파이썬 캐시
+venv/
 __pycache__/
 *.py[cod]
+.pytest_cache/
+.coverage
+coverage.xml
 
-# IDE
-.vscode/
+### IntelliJ IDEA ###
 .idea/
+*.iml
+*.ipr
+*.iws
 
-# OS
+### VS Code ###
+.vscode/
+
+### MacOS ###
 .DS_Store
 
-# 환경변수
+### Local environment / secrets ###
 .env
+.env.*
+*.env
+env.local
+!*.env.example
+!.env.*.example
+!*.env.sample
+secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+### Local runtime / tooling ###
+*.log
+logs/
+tmp/
+.mise.local.toml
+mise.local.toml
+.serena
+
+### AI agents ###
+AGENTS.md
+AGENTS.override.md
+.agents/
+.codex/
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+GEMINI.md
+.gemini/
