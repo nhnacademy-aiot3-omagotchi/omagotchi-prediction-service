@@ -65,6 +65,34 @@ def test_username_with_colon_rejected(env):
         _read_credential_from_env()
 
 
+@pytest.mark.parametrize(
+    "username",
+    ["학습서비스", "learning-서비스", "learning service", "learning\tservice"],
+    ids=["unicode", "mixed", "space", "tab"],
+)
+def test_non_ascii_username_rejected(env, username):
+    # FastAPI HTTPBasic이 Basic payload를 ASCII로 해석하므로,
+    # 비-ASCII username은 설정 검증을 통과해도 호출이 전부 401이 된다.
+    # 기동 시점에 막아 런타임 실패로 넘어가지 않게 한다.
+    env.setenv(USERNAME_ENV, username)
+    env.setenv(PASSWORD_ENV, VALID_PASSWORD)
+
+    with pytest.raises(ValueError, match="ASCII"):
+        _read_credential_from_env()
+
+
+@pytest.mark.parametrize(
+    "username",
+    ["learning-service", "learning_service", "learning.service", "svc-01"],
+    ids=["hyphen", "underscore", "dot", "digit"],
+)
+def test_ascii_username_accepted(env, username):
+    env.setenv(USERNAME_ENV, username)
+    env.setenv(PASSWORD_ENV, VALID_PASSWORD)
+
+    assert _read_credential_from_env().username == username
+
+
 @pytest.mark.parametrize("length", [31, 73], ids=["too-short", "too-long"])
 def test_password_length_out_of_range_rejected(env, length):
     env.setenv(USERNAME_ENV, VALID_USERNAME)

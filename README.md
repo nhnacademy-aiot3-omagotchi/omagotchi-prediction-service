@@ -23,7 +23,7 @@
 python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt   # 운영 + 테스트 의존성 전부
-pytest                                 # 60 passed 나와야 정상
+pytest                                 # 68 passed 나와야 정상
 
 cp .env.local.example .env.local       # 값을 채운 뒤 사용 (.env.local은 커밋 대상 아님)
 uvicorn app.main:app --reload --port 8085 --env-file .env.local
@@ -101,7 +101,8 @@ tests/
 | 적용 범위 | `/api/v1/predictions/**` (라우터 전체 — 이후 추가되는 엔드포인트도 자동 적용) |
 | 제외 | `/health` — Compose healthcheck가 Credential 없이 호출함 |
 
-- Credential 규약은 identity·learning과 동일합니다: username에 `:` 사용 불가, password는 32~72자에 영문자·숫자·`-`·`_`만 허용. 어긋나면 기동에 실패합니다.
+- Credential 규약은 identity·learning과 동일합니다: username은 공백과 `:`를 제외한 ASCII 출력 가능 문자만, password는 32~72자에 영문자·숫자·`-`·`_`만 허용. 어긋나면 기동에 실패합니다.
+- username을 ASCII로 제한하는 이유: HTTP Basic payload가 ASCII로 해석되므로(FastAPI `HTTPBasic`), 비-ASCII username은 설정 검증을 통과하더라도 실제 호출이 전부 `401`로 실패합니다. 기동 시점에 드러내기 위해 검증에서 막습니다.
 - 대조는 `secrets.compare_digest`로 수행해 타이밍 공격에 대응하고, username·password 비교를 모두 수행한 뒤 판정합니다.
 - 인증 실패는 헤더 누락·스킴 불일치·base64 손상·자격 불일치를 가리지 않고 전부 `401 AUTH_AUTHENTICATION_REQUIRED` 한 형식으로 응답하며, `WWW-Authenticate` 헤더를 함께 보냅니다.
 - 실제 Credential 값은 저장소에 두지 않습니다. 서버 `secrets/prod.env`와 `omagotchi-infra` 저장소의 `production` Environment Secret(`PROD_ENV`)에만 존재합니다([Secret 관리](https://github.com/nhnacademy-aiot3-omagotchi/docs/blob/main/40-operations/03-secrets.md)).

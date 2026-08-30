@@ -24,6 +24,11 @@ PASSWORD_MIN_LENGTH = 32
 PASSWORD_MAX_LENGTH = 72
 _PASSWORD_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 
+# HTTP Basic payload는 ASCII로 해석되므로(FastAPI HTTPBasic) username도 ASCII로 제한한다.
+# 비-ASCII를 허용하면 설정 검증은 통과하고 호출만 401로 실패해 원인 파악이 어렵다.
+# 0x21~0x7e(출력 가능한 ASCII)에서 구분자 ':'(0x3a)만 제외한다.
+_USERNAME_PATTERN = re.compile(r"^[\x21-\x39\x3b-\x7e]+$")
+
 
 class AuthenticationRequiredError(Exception):
     # 인증 실패. 응답 형식은 exception_handlers가 담당한다
@@ -49,6 +54,10 @@ def _read_credential_from_env() -> ServiceCredential:
     if ":" in username:
         # HTTP Basic이 username:password로 구분하므로 ':'를 허용하지 않는다
         raise ValueError(f"{USERNAME_ENV}에는 ':'를 사용할 수 없습니다.")
+    if not _USERNAME_PATTERN.fullmatch(username):
+        raise ValueError(
+            f"{USERNAME_ENV}는 공백을 제외한 ASCII 출력 가능 문자만 사용할 수 있습니다."
+        )
     if not password:
         raise ValueError(f"{PASSWORD_ENV}는 비어 있을 수 없습니다.")
     if not PASSWORD_MIN_LENGTH <= len(password) <= PASSWORD_MAX_LENGTH:
