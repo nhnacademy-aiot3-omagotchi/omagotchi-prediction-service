@@ -1,0 +1,32 @@
+# Build outputs and local runtime files
+**/.venv/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/tmp/
+**/logs/
+**/*.log
+
+# Source-control and local tooling metadata
+**/.git/
+**/.github/
+**/.gitignore
+**/.idea/
+**/.vscode/
+**/.fleet/
+**/.DS_Store
+**/Thumbs.db
+**/.mise.local.toml
+**/mise.local.toml
+
+# Local environment and secret material
+**/.env
+**/.env.*
+**/*.env
+**/secrets/
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/*.jks
+**/*.keystore

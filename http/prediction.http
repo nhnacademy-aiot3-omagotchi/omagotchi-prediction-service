@@ -1,0 +1,119 @@
+@host = http://localhost:8085
+
+# learning-service 호출 관계 전용 Credential (.env.local의 값과 같아야 함)
+# 실제 값은 여기 적지 않는다 — 로컬에서만 바꿔 쓰고 커밋하지 않는다
+@username = learning-service
+@password = replace-with-32-to-72-byte-secret
+
+# Basic 인증 표기는 클라이언트마다 다르다
+#   VS Code REST Client : Authorization: Basic {{username}}:{{password}}
+#   IntelliJ HTTP Client: Authorization: Basic {{username}} {{password}}
+# 아래는 VS Code REST Client 기준
+
+### 헬스체크 - 인증 없이 호출된다 (Compose healthcheck와 같은 경로)
+GET {{host}}/health
+
+### 예측 - 실제 데이터(user9 / 2026-06-26) 기준
+# 오프라인 기대값: predictedStudyHours = 2.178
+POST {{host}}/api/v1/predictions/study-time
+Authorization: Basic {{username}}:{{password}}
+Content-Type: application/json
+
+{
+  "studyLag1": 9.5978,
+  "studyLag2": 9.6236,
+  "studyLag3": 8.1269,
+  "study7dMean": 7.3602,
+  "study30dMean": 6.9199,
+  "studyAllMean": 6.7323,
+  "study7dStd": 3.5685,
+  "trend7To30": 0.4403,
+  "studyDiff1d": -0.0258,
+  "att7d": 1.0,
+  "att30d": 0.9545,
+  "attAll": 0.9767,
+  "attendDays7d": 6.0,
+  "noshowYesterday": 0,
+  "late7d": 0.0,
+  "late30d": 0.0,
+  "lateAll": 0.0238,
+  "forgot7d": 0.0,
+  "entryLag1Min": 540.0,
+  "entry7dMeanMin": 539.1667,
+  "level": 18,
+  "questsTotal": 142,
+  "questStreak": 2,
+  "questRate7d": 0.5714,
+  "tomorrowIsWeekday": 0,
+  "tomorrowDow1": 0,
+  "tomorrowDow2": 0,
+  "tomorrowDow3": 0,
+  "tomorrowDow4": 0,
+  "tomorrowDow5": 1,
+  "tomorrowDow6": 0,
+  "daysSinceStart": 298
+}
+
+### 결측 포함 케이스 - 미등원일이라 입실시각이 없음
+POST {{host}}/api/v1/predictions/study-time
+Authorization: Basic {{username}}:{{password}}
+Content-Type: application/json
+
+{
+  "studyLag1": 0.0, "studyLag2": 6.5, "studyLag3": 7.1,
+  "study7dMean": 5.2, "study30dMean": 5.8, "studyAllMean": 6.0, "study7dStd": 2.9,
+  "trend7To30": -0.6, "studyDiff1d": -6.5,
+  "att7d": 0.8, "att30d": 0.9, "attAll": 0.91, "attendDays7d": 4.0, "noshowYesterday": 1,
+  "late7d": null, "late30d": 0.1, "lateAll": 0.08, "forgot7d": 0.0,
+  "entryLag1Min": null, "entry7dMeanMin": null,
+  "level": 12, "questsTotal": 80, "questStreak": 0, "questRate7d": 0.14,
+  "tomorrowIsWeekday": 1,
+  "tomorrowDow1": 0, "tomorrowDow2": 1, "tomorrowDow3": 0,
+  "tomorrowDow4": 0, "tomorrowDow5": 0, "tomorrowDow6": 0,
+  "daysSinceStart": 150
+}
+
+### 검증 실패 케이스 - 필수 필드 누락 시 400 나와야 정상
+POST {{host}}/api/v1/predictions/study-time
+Authorization: Basic {{username}}:{{password}}
+Content-Type: application/json
+
+{
+    "studyLag1": 5.0
+}
+
+### 크로스필드 검증 실패 - 요일 원-핫과 tomorrow_is_weekday 모순
+# tomorrowDow5 = 토요일 = 1인데 tomorrowIsWeekday = 1이라고 우겨서 모순 -> 400 나와야 정상 
+POST {{host}}/api/v1/predictions/study-time
+Authorization: Basic {{username}}:{{password}}
+Content-Type: application/json
+
+{
+  "studyLag1": 9.5978, "studyLag2": 9.6236, "studyLag3": 8.1269,
+  "study7dMean": 7.3602, "study30dMean": 6.9199, "studyAllMean": 6.7323, "study7dStd": 3.5685,
+  "trend7To30": 0.4403, "studyDiff1d": -0.0258,
+  "att7d": 1.0, "att30d": 0.9545, "attAll": 0.9767, "attendDays7d": 6.0, "noshowYesterday": 0,
+  "late7d": 0.0, "late30d": 0.0, "lateAll": 0.0238, "forgot7d": 0.0,
+  "entryLag1Min": 540.0, "entry7dMeanMin": 539.1667,
+  "level": 18, "questsTotal": 142, "questStreak": 2, "questRate7d": 0.5714,
+  "tomorrowIsWeekday": 1,
+  "tomorrowDow1": 0, "tomorrowDow2": 0, "tomorrowDow3": 0,
+  "tomorrowDow4": 0, "tomorrowDow5": 1, "tomorrowDow6": 0,
+  "daysSinceStart": 298
+}
+### 인증 실패 - Credential 없음 -> 401 AUTH_AUTHENTICATION_REQUIRED
+POST {{host}}/api/v1/predictions/study-time
+Content-Type: application/json
+
+{
+    "studyLag1": 5.0
+}
+
+### 인증 실패 - 틀린 Credential -> 401 (400보다 인증이 먼저 판정된다)
+POST {{host}}/api/v1/predictions/study-time
+Authorization: Basic {{username}}:wrong-password-wrong-password-000000
+Content-Type: application/json
+
+{
+    "studyLag1": 5.0
+}
