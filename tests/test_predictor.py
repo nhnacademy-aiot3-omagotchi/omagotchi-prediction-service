@@ -6,7 +6,6 @@ caplog도 pytest 내장으로, 로그가 실제로 찍혔는지 안 찍혔는지
 """
 
 import app.predictor as predictor_module
-import logging
 
 import joblib
 import numpy as np
@@ -29,45 +28,52 @@ def base_features(predictor) -> dict:
 
 
 def test_normal_prediction_within_range(predictor, base_features):
-    y_hat = predictor.predict(base_features)
+    calculation = predictor.predict(base_features)
 
-    assert 0.0 <= y_hat <= MAX_STUDY_H
+    assert 0.0 <= calculation.clamped_hours <= MAX_STUDY_H
 
 
 def test_negative_model_output_clamped_to_zero(predictor, base_features, monkeypatch):
     monkeypatch.setattr(predictor._model, "predict", lambda X: np.array([-0.566]))
 
-    assert predictor.predict(base_features) == 0.0
+    calculation = predictor.predict(base_features)
+
+    assert calculation.raw_hours == -0.566
+    assert calculation.clamped_hours == 0.0
 
 
 def test_excessive_model_output_clamped_to_max(predictor, base_features, monkeypatch):
     monkeypatch.setattr(predictor._model, "predict", lambda X: np.array([15.0]))
 
-    assert predictor.predict(base_features) == MAX_STUDY_H
+    calculation = predictor.predict(base_features)
+
+    assert calculation.raw_hours == 15.0
+    assert calculation.clamped_hours == MAX_STUDY_H
 
 
-def test_clamp_logs_warning(predictor, base_features, monkeypatch, caplog):
-    monkeypatch.setattr(predictor._model, "predict", lambda X: np.array([-0.566]))
-    with caplog.at_level(logging.WARNING, logger="app.predictor"):
+@pytest.mark.parametrize("non_finite", [np.nan, np.inf, -np.inf])
+def test_non_finite_model_output_rejected(
+        predictor, base_features, monkeypatch, non_finite
+):
+    monkeypatch.setattr(
+        predictor._model,
+        "predict",
+        lambda X: np.array([non_finite]),
+    )
+
+    with pytest.raises(
+            ValueError,
+            match="모델이 유한하지 않은 예측값을 반환했습니다",
+    ):
         predictor.predict(base_features)
-
-    assert any("보정" in record.message for record in caplog.records)
-
-
-def test_no_clamp_no_warning_logged(predictor, base_features, monkeypatch, caplog):
-    monkeypatch.setattr(predictor._model, "predict", lambda X: np.array([5.0]))
-    with caplog.at_level(logging.WARNING, logger="app.predictor"):
-        predictor.predict(base_features)
-
-    assert len(caplog.records) == 0
 
 
 def test_missing_value_handled(predictor, base_features):
     # 결측(None)이 섞여도 죽지 않고 정상 범위 내 값이 나와야 한다
     base_features["entry_lag1_min"] = None
-    y_hat = predictor.predict(base_features)
+    calculation = predictor.predict(base_features)
 
-    assert 0.0 <= y_hat <= MAX_STUDY_H
+    assert 0.0 <= calculation.clamped_hours <= MAX_STUDY_H
 
 
 # get_predictor()의 RuntimeError (도달하기 어렵기는 함)
@@ -80,7 +86,6 @@ def test_get_predictor_raises_when_not_loaded(monkeypatch):
 
 # monkeypatch는 pytest가 기본으로 제공하는 fixture (Mockito의 when().thenReturn()처럼 테스트 끝나면 자동으로 원상복구되는 가짜 교체 도구임)
 def test_feature_schema_mismatch_rejected(monkeypatch):
-
     # 진짜 모델 파일을 그대로 한 번 읽어옴
     # joblib.load()는 파이썬 객체를 파일로 저장/복원하는 라이브러리임
     # 이 파일 안엔 {"model": ..., "FEATURES": [...35개...], "nan_cols": [...], "version": "..."} 형태의 dict가 들어있음
