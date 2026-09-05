@@ -3,17 +3,22 @@
 Spring과 대응시키면 @Service
 """
 
+from dataclasses import dataclass
+import math
+from pathlib import Path
+
 import joblib
 import pandas as pd
-import logging
 
 from app.config import MAX_STUDY_H
 
-from pathlib import Path
-
 from app.schemas import PredictionRequest
 
-logger = logging.getLogger(__name__)
+
+@dataclass(frozen=True)
+class PredictionCalculation:
+    raw_hours: float
+    clamped_hours: float
 
 
 class StudyTimePredictor:
@@ -67,7 +72,7 @@ class StudyTimePredictor:
     def feature_count(self) -> int:
         return len(self._features)
 
-    def predict(self, features: dict) -> float:
+    def predict(self, features: dict) -> PredictionCalculation:
         row = dict(features)
 
         # 결측 플래그 파생
@@ -78,13 +83,13 @@ class StudyTimePredictor:
         X = pd.DataFrame([row])[self._features].astype(float)  # None -> NaN, float64
         y_hat = float(self._model.predict(X)[0])
 
+        if not math.isfinite(y_hat):
+            raise ValueError("모델이 유한하지 않은 예측값을 반환했습니다")
+
         clamped = min(max(y_hat, 0.0), MAX_STUDY_H)
 
-        if clamped != y_hat:
-            logger.warning("예측값 보정: raw = %.4f -> clamped = %.4f", y_hat, clamped)
-
         # 예측 모델 출력 계약 보장: 공부시간은 [0, 11.5] 안에 있다
-        return clamped
+        return PredictionCalculation(raw_hours=y_hat, clamped_hours=clamped)
 
 
 _predictor: StudyTimePredictor | None = None
