@@ -1,4 +1,4 @@
-"""Request ID 확정·전파와 HTTP 접근 로그 기록."""
+"""Request ID 확정·전파와 HTTP 접근 이벤트 기록."""
 
 from contextvars import ContextVar
 import logging
@@ -6,12 +6,15 @@ import re
 import time
 import uuid
 
+from opentelemetry import trace
 from starlette.datastructures import Headers
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 REQUEST_ID_HEADER = "X-Request-ID"
 REQUEST_ID_STATE_KEY = "request_id"
+TRACE_ID_STATE_KEY = "trace_id"
+SPAN_ID_STATE_KEY = "span_id"
 
 _VALID_REQUEST_ID = re.compile(r"^[0-9a-f]{32}$")
 _current_request_id: ContextVar[str | None] = ContextVar(
@@ -41,15 +44,19 @@ class RequestIDMiddleware:
 
         state = scope.setdefault("state", {})
         state[REQUEST_ID_STATE_KEY] = request_id
-        token = _current_request_id.set(request_id)
+        span_context = trace.get_current_span().get_span_context()
+        if span_context.is_valid:
+            state[TRACE_ID_STATE_KEY] = format(span_context.trace_id, "032x")
+            state[SPAN_ID_STATE_KEY] = format(span_context.span_id, "016x")
 
-        started_at = time.monotonic()
-        status_holder = {"status": None}
+        token = _current_request_id.set(request_id)
+        started_at = time.monotonic_ns()
+        status_code: int | None = None
 
         async def send_wrapper(message: Message) -> None:
-            # 정상 경로(라우트 핸들러가 만든 응답)는 여기를 거친다
+            nonlocal status_code
             if message["type"] == "http.response.start":
-                status_holder["status"] = message["status"]
+                status_code = message["status"]
                 raw_headers = list(message.get("headers", []))
                 request_id_header = REQUEST_ID_HEADER.lower().encode("latin-1")
                 raw_headers = [
@@ -69,15 +76,30 @@ class RequestIDMiddleware:
         try:
             await self.app(scope, receive, send_wrapper)
         finally:
-            elapsed_ms = (time.monotonic() - started_at) * 1000
-            logger.info(
-                "%s %s -> %s (%.1fms) [%s]",
-                scope["method"],
-                scope["path"],
-                status_holder["status"] or 500,
-                elapsed_ms,
-                request_id,
-            )
+            if scope["path"] != "/health":
+                completed_status = status_code or 500
+                route = getattr(scope.get("route"), "path", "UNMATCHED")
+                extra = {
+                    "event": {
+                        "dataset": "prediction-service.http",
+                        "action": "http.server.request.completed",
+                        "outcome": "failure" if completed_status >= 400 else "success",
+                        "duration": max(0, time.monotonic_ns() - started_at),
+                    },
+                    "http": {
+                        "request": {"id": request_id, "method": scope["method"]},
+                        "response": {"status_code": completed_status},
+                    },
+                    "omagotchi": {"http": {"route": route}},
+                }
+                if TRACE_ID_STATE_KEY in state:
+                    extra["trace"] = {"id": state[TRACE_ID_STATE_KEY]}
+                    extra["span"] = {"id": state[SPAN_ID_STATE_KEY]}
+                logger.log(
+                    logging.ERROR if completed_status >= 500 else logging.INFO,
+                    "HTTP request completed",
+                    extra=extra,
+                )
             _current_request_id.reset(token)
 
 

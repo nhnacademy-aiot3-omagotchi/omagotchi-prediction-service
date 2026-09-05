@@ -68,8 +68,10 @@ def test_completion_log_fires_on_unhandled_exception(
     matched = [
         r
         for r in caplog.records
-        if r.name == "app.request_id" and request_id in r.message
+        if r.name == "app.request_id"
+        and getattr(r, "event", {}).get("dataset") == "prediction-service.http"
     ]
 
     assert len(matched) == 1
-    assert " 500 " in matched[0].message
+    assert matched[0].http["request"]["id"] == request_id
+    assert matched[0].http["response"]["status_code"] == 500
