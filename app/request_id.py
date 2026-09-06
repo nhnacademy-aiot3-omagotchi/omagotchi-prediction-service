@@ -1,33 +1,25 @@
-"""
-Request ID 전파 미들웨어
-- 들어온 X-Request-ID가 있으면 그대로 전파 (형식을 해석하지 않는 opaque 문자열)
-- 없거나 빈 값이면 이 서비스가 요청 경계로서 새로 발급
-- 응답 헤더 X-Request-ID, 오류 응답의 requestId, 로그가 전부 같은 값을 쓴다
+"""Request ID 확정·전파와 HTTP 접근 이벤트 기록."""
 
-값은 scope["state"](=request.state)에 저장한다 (contextvars 아님).
-Starlette의 raw Exception 핸들러(ServerErrorMiddleware)는 사용자 미들웨어 스택
-전체를 건너뛰고 최상위 send로 직접 응답을 내보내기 때문에, 이 경로에서는
-1) 미들웨어의 send 래핑이 아예 호출되지 않고
-2) contextvars도 그 경로에서 새로 구성되는 실행 흐름에서 보장되지 않는다.
-scope는 요청 전체(정상 처리·예외 처리 모두)가 공유하는 같은 딕셔너리라서
-어느 경로로 응답이 나가든 값을 읽을 수 있는 유일하게 신뢰할 수 있는 방법이다.
-그래서 응답 헤더도 미들웨어가 아니라 각 예외 핸들러가 직접 부착한다 (app/main.py).
-
-완료 로그(요청당 한 줄)도 같은 이유로 try/finally 안에서 남긴다 —
-처리되지 않은 예외는 self.app() 호출 자체를 뚫고 나가므로, finally 없이
-로그를 뒤에 두면 500 케이스에서만 로그가 통째로 빠진다.
-"""
-
+from contextvars import ContextVar
 import logging
+import re
 import time
 import uuid
 
+from opentelemetry import trace
 from starlette.datastructures import Headers
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 REQUEST_ID_HEADER = "X-Request-ID"
 REQUEST_ID_STATE_KEY = "request_id"
+TRACE_ID_STATE_KEY = "trace_id"
+SPAN_ID_STATE_KEY = "span_id"
+
+_VALID_REQUEST_ID = re.compile(r"^[0-9a-f]{32}$")
+_current_request_id: ContextVar[str | None] = ContextVar(
+    "http.request.id", default=None
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,52 +34,80 @@ class RequestIDMiddleware:
             return
 
         headers = Headers(scope=scope)
+        incoming_values = headers.getlist(REQUEST_ID_HEADER)
+        request_id = (
+            incoming_values[0]
+            if len(incoming_values) == 1
+            and _VALID_REQUEST_ID.fullmatch(incoming_values[0]) is not None
+            else uuid.uuid4().hex
+        )
 
-        # 들어온 요청에 X-Request-ID가 있으면 그 값을 가져옴 (없으면 None)
-        incoming = headers.get(REQUEST_ID_HEADER)
+        state = scope.setdefault("state", {})
+        state[REQUEST_ID_STATE_KEY] = request_id
+        span_context = trace.get_current_span().get_span_context()
+        if span_context.is_valid:
+            state[TRACE_ID_STATE_KEY] = format(span_context.trace_id, "032x")
+            state[SPAN_ID_STATE_KEY] = format(span_context.span_id, "016x")
 
-        # None이거나 빈 문자열이면(둘 다 falsy) uuid.uuid4().hex로 새 ID를 발급함
-        request_id = incoming if incoming else uuid.uuid4().hex
-
-        scope.setdefault("state", {})[REQUEST_ID_STATE_KEY] = request_id
-
-        started_at = time.monotonic()
-        status_holder = {"status": None}
+        token = _current_request_id.set(request_id)
+        started_at = time.monotonic_ns()
+        status_code: int | None = None
 
         async def send_wrapper(message: Message) -> None:
-            # 정상 경로(라우트 핸들러가 만든 응답)는 여기를 거친다
+            nonlocal status_code
             if message["type"] == "http.response.start":
-                status_holder["status"] = message["status"]
+                status_code = message["status"]
                 raw_headers = list(message.get("headers", []))
-                already_has_id = any(
-                    k.lower() == REQUEST_ID_HEADER.lower().encode("latin-1")
-                    for k, _ in raw_headers
-                )
-
-                if not already_has_id:
-                    raw_headers.append(
-                        (
-                            REQUEST_ID_HEADER.encode("latin-1"),
-                            request_id.encode("latin-1"),
-                        )
+                request_id_header = REQUEST_ID_HEADER.lower().encode("latin-1")
+                raw_headers = [
+                    (name, value)
+                    for name, value in raw_headers
+                    if name.lower() != request_id_header
+                ]
+                raw_headers.append(
+                    (
+                        REQUEST_ID_HEADER.encode("latin-1"),
+                        request_id.encode("latin-1"),
                     )
+                )
                 message["headers"] = raw_headers
             await send(message)
 
         try:
             await self.app(scope, receive, send_wrapper)
         finally:
-            elapsed_ms = (time.monotonic() - started_at) * 1000
-            logger.info(
-                "%s %s -> %s (%.1fms) [%s]",
-                scope["method"],
-                scope["path"],
-                status_holder["status"] or 500,
-                elapsed_ms,
-                request_id,
-            )
+            if scope["path"] != "/health":
+                completed_status = status_code or 500
+                route = getattr(scope.get("route"), "path", "UNMATCHED")
+                extra = {
+                    "event": {
+                        "dataset": "prediction-service.http",
+                        "action": "http.server.request.completed",
+                        "outcome": "failure" if completed_status >= 400 else "success",
+                        "duration": max(0, time.monotonic_ns() - started_at),
+                    },
+                    "http": {
+                        "request": {"id": request_id, "method": scope["method"]},
+                        "response": {"status_code": completed_status},
+                    },
+                    "omagotchi": {"http": {"route": route}},
+                }
+                if TRACE_ID_STATE_KEY in state:
+                    extra["trace"] = {"id": state[TRACE_ID_STATE_KEY]}
+                    extra["span"] = {"id": state[SPAN_ID_STATE_KEY]}
+                logger.log(
+                    logging.ERROR if completed_status >= 500 else logging.INFO,
+                    "HTTP request completed",
+                    extra=extra,
+                )
+            _current_request_id.reset(token)
+
+
+def current_request_id() -> str | None:
+    """현재 비동기 실행 문맥의 Request ID 조회."""
+    return _current_request_id.get()
 
 
 def get_request_id(request: Request) -> str | None:
-    # request.state에서 Request ID를 꺼낸다
+    """예외 처리까지 유지되는 요청 상태의 Request ID 조회."""
     return getattr(request.state, REQUEST_ID_STATE_KEY, None)
