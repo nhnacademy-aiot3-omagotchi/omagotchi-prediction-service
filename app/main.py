@@ -5,6 +5,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from starlette.responses import Response
 
 from app.config import MODEL_PATH
 from app.exception_handlers import register_exception_handlers
@@ -55,7 +57,7 @@ app.include_router(prediction.router)
 register_exception_handlers(app)
 FastAPIInstrumentor.instrument_app(
     app,
-    excluded_urls=r".*/health$",
+    excluded_urls=r".*/(health|metrics)(\?.*)?$",
     exclude_spans=["receive", "send"],
 )
 
@@ -64,3 +66,9 @@ FastAPIInstrumentor.instrument_app(
 def health():
     # 기동 과정의 모델 적재 성공을 전제로 한 준비 상태 응답
     return {"status": "UP", "modelVersion": get_predictor().version}
+
+
+@app.get("/metrics", include_in_schema=False)
+def prometheus_metrics():
+    # 내부 Prometheus 전용, Nginx·Gateway 외부 Route 미등록
+    return Response(content=generate_latest(), headers={"Content-Type": CONTENT_TYPE_LATEST})

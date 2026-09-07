@@ -7,6 +7,7 @@ import logging
 import time
 
 from fastapi import APIRouter, Depends, Request
+from opentelemetry import trace
 
 from app.config import MAX_STUDY_H
 from app.predictor import StudyTimePredictor, get_predictor
@@ -15,6 +16,7 @@ from app.schemas import PredictionRequest, PredictionResponse
 from app.security import require_service_credential
 
 logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 router = APIRouter(
     prefix="/api/v1/predictions",
@@ -31,7 +33,9 @@ def predict_study_time(
         predictor: StudyTimePredictor = Depends(get_predictor),
 ) -> PredictionResponse:
     started_at = time.perf_counter()
-    calculation = predictor.predict(payload.model_dump())
+    # 실제 추론 구간만 측정, 입력 Feature·예측 원본의 Span 속성 기록 제외
+    with tracer.start_as_current_span("prediction.inference", record_exception=False):
+        calculation = predictor.predict(payload.model_dump())
     inference_elapsed_ms = (time.perf_counter() - started_at) * 1000
     response_hours = round(calculation.clamped_hours, 3)
 
