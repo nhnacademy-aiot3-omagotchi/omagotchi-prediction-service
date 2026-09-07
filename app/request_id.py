@@ -76,7 +76,7 @@ class RequestIDMiddleware:
         try:
             await self.app(scope, receive, send_wrapper)
         finally:
-            if scope["path"] != "/health":
+            if scope["path"] not in {"/health", "/metrics"}:
                 completed_status = status_code or 500
                 route = getattr(scope.get("route"), "path", "UNMATCHED")
                 extra = {
