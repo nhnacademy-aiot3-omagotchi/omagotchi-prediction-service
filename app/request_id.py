@@ -16,7 +16,8 @@ REQUEST_ID_STATE_KEY = "request_id"
 TRACE_ID_STATE_KEY = "trace_id"
 SPAN_ID_STATE_KEY = "span_id"
 
-_VALID_REQUEST_ID = re.compile(r"^[0-9a-f]{32}$")
+_MAX_REQUEST_ID_LENGTH = 32
+_ALLOWED_REQUEST_ID_CHARACTERS = re.compile(r"[A-Za-z0-9._-]+")
 _current_request_id: ContextVar[str | None] = ContextVar(
     "http.request.id", default=None
 )
@@ -35,12 +36,26 @@ class RequestIDMiddleware:
 
         headers = Headers(scope=scope)
         incoming_values = headers.getlist(REQUEST_ID_HEADER)
-        request_id = (
-            incoming_values[0]
-            if len(incoming_values) == 1
-            and _VALID_REQUEST_ID.fullmatch(incoming_values[0]) is not None
-            else uuid.uuid4().hex
-        )
+        if not incoming_values or incoming_values == [""]:
+            request_id = uuid.uuid4().hex
+        elif (
+            len(incoming_values) == 1
+            and _ALLOWED_REQUEST_ID_CHARACTERS.fullmatch(incoming_values[0]) is not None
+        ):
+            # 자르기 전에 전체 문자 검사: 뒷부분의 잘못된 문자를 숨기지 않는 처리
+            request_id = incoming_values[0][:_MAX_REQUEST_ID_LENGTH]
+            if len(incoming_values[0]) > _MAX_REQUEST_ID_LENGTH:
+                logger.warning(
+                    "Request ID truncated: length limit exceeded",
+                    extra={"http": {"request": {"id": request_id}}},
+                )
+        else:
+            request_id = uuid.uuid4().hex
+            # 원문 제외: 안전하지 않은 입력 대신 확정값과 교체 사유만 기록
+            logger.warning(
+                "Request ID regenerated: invalid or duplicate header",
+                extra={"http": {"request": {"id": request_id}}},
+            )
 
         state = scope.setdefault("state", {})
         state[REQUEST_ID_STATE_KEY] = request_id
