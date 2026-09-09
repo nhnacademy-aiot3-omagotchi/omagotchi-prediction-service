@@ -13,4 +13,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app/ app/
 COPY models/ models/
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+# 진행 중 추론의 종료 대기 상한, Container의 종료 대기는 이보다 길게 설정
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--timeout-graceful-shutdown", "60"]
