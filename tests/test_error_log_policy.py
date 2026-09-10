@@ -30,6 +30,12 @@ def test_unhandled_exception_logs_stack_trace(
     records = [r for r in caplog.records if r.name == "app.exception_handlers"]
 
     assert len(records) == 2
+    safe = next(record for record in records if record.event["dataset"] == "prediction-service.error")
+    safe_document = json.loads(ecs_logging.StdlibFormatter().format(safe))
+    assert safe.exc_info is None
+    assert "RuntimeError" in safe_document["error"]["stack_trace"]
+    assert "테스트용 강제 예외" not in json.dumps(safe_document, ensure_ascii=False)
+    assert "message" not in safe_document["error"]
     assert {record.event["dataset"] for record in records} == {
         "prediction-service.error",
         "prediction-service.diagnostic",

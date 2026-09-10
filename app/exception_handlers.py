@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.error_stack_trace import format_error_stack_trace
 from app.errors import (
     AUTH_AUTHENTICATION_REQUIRED,
     COMMON_INTERNAL_SERVER_ERROR,
@@ -77,6 +78,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
             "error": {
                 "code": COMMON_INTERNAL_SERVER_ERROR.code,
                 "type": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                "stack_trace": format_error_stack_trace(exc),
             },
         },
     )
