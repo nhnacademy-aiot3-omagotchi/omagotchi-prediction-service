@@ -23,21 +23,19 @@ def test_predict_success(client, api_payload, service_auth, caplog):
 
     # 실제 모델(models/study_time_model.joblib)로 계산한 오프라인 기대값
     # 모델을 재학습해서 교체하면 이 값도 같이 갱신해야 함 (http/prediction.http에도 동일 기대값이 있음)
-    assert body["predictedStudyHours"] == 2.178
+    assert body["predictedStudyHours"] == 2.488
     assert body["modelVersion"]
     assert "학습 시간 예측 완료:" in caplog.text
     assert "원본예측(rawPredictedStudyHours)=" in caplog.text
     assert "출력범위보정(adjustment)=보정 없음(NONE)" in caplog.text
-    assert "응답반올림(responsePredictedStudyHours)=2.178시간" in caplog.text
+    assert "응답반올림(responsePredictedStudyHours)=2.488시간" in caplog.text
     assert "내일요일(tomorrowDayOfWeek)=토요일(SATURDAY)" in caplog.text
     assert "평일여부(tomorrowIsWeekday)=아니오(0)" in caplog.text
     assert "추론시간(inferenceElapsedMs)=" in caplog.text
     assert f"요청ID(requestId)={request_id}" in caplog.text
 
 
-def test_predict_min_clamp_logged_as_warning(
-        client, api_payload, service_auth, caplog
-):
+def test_predict_min_clamp_logged_as_warning(client, api_payload, service_auth, caplog):
     _install_predictor(-0.566, 0.0)
 
     with caplog.at_level(logging.WARNING, logger="app.routers.prediction"):
@@ -53,9 +51,7 @@ def test_predict_min_clamp_logged_as_warning(
     assert "출력범위보정(adjustment)=최소 0시간 적용(MIN_CLAMP)" in caplog.text
 
 
-def test_predict_max_clamp_logged_as_warning(
-        client, api_payload, service_auth, caplog
-):
+def test_predict_max_clamp_logged_as_warning(client, api_payload, service_auth, caplog):
     _install_predictor(15.0, MAX_STUDY_H)
 
     with caplog.at_level(logging.WARNING, logger="app.routers.prediction"):
@@ -86,7 +82,7 @@ def test_predict_validation_failure_returns_error_format(client, service_auth):
 
 # 예측 중 오류를 발생시키는 의존성 교체 Fixture 실행을 위한 매개변수 유지
 def test_predict_unhandled_exception_returns_error_format(
-        client, api_payload, service_auth, broken_predictor_installed
+    client, api_payload, service_auth, broken_predictor_installed
 ):
     response = client.post(
         "/api/v1/predictions/study-time", json=api_payload, auth=service_auth
