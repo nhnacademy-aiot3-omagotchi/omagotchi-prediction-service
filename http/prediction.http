@@ -14,7 +14,7 @@
 GET {{host}}/health
 
 ### 예측 - 실제 데이터(user9 / 2026-06-26) 기준
-# 오프라인 기대값: predictedStudyHours = 2.178
+# 오프라인 기대값: predictedStudyHours = 2.488 (study-time-2026-09-12)
 POST {{host}}/api/v1/predictions/study-time
 Authorization: Basic {{username}}:{{password}}
 Content-Type: application/json

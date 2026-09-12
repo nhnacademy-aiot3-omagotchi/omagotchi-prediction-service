@@ -23,7 +23,7 @@
 python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt   # 운영 + 테스트 의존성 전부
-pytest                                 # 68 passed 나와야 정상
+pytest                                 # 88 passed 나와야 정상
 
 cp .env.local.example .env.local       # 값을 채운 뒤 사용 (.env.local은 커밋 대상 아님)
 uvicorn app.main:app --reload --port 8085 --env-file .env.local
